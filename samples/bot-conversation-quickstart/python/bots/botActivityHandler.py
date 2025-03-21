@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+import os
 from botbuilder.core import TurnContext, MessageFactory
 from botbuilder.schema import HeroCard, CardAction, ActionTypes, Mention, Attachment
 from botbuilder.core.teams import TeamsActivityHandler
@@ -8,6 +9,7 @@ from html import escape
 
 from dotenv import load_dotenv
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
 
 # Load required Databricks variables from the .env file into the environment.
 load_dotenv()
@@ -37,54 +39,27 @@ class BotActivityHandler(TeamsActivityHandler):
         # Extract the user's message text and strip any extra spaces.
         user_message = turn_context.activity.text.strip()
 
-        # If the user's message is "Hello", respond with a personalized mention.
-        if user_message == "Hello":
-            await self.mention_activity_async(turn_context)
-        else:
-            # If the user's message is something else, respond with a hero card.
-            value = {"count": 0}  # Example value to be passed with the card action.
-            card = HeroCard(
-                title="Let's talk...",  # Title of the card.
-                buttons=[
-                    # Add a button to the card that sends a "Hello" message back to the bot.
-                    CardAction(
-                        type=ActionTypes.message_back,  # Button type: sends a message back.
-                        title="Say Hello",  # Button text displayed to the user.
-                        value=value,  # Payload sent when the button is clicked.
-                        text="Hello",  # Message text sent when the button is clicked.
-                    )
-                ],
-            )
-            # Convert the hero card to an attachment that can be sent in the bot's response.
-            attachment = Attachment(
-                content_type="application/vnd.microsoft.card.hero",  # Indicates this is a hero card.
-                content=card  # The actual hero card content.
-            )
-            # Send the hero card as the bot's response.
-            await turn_context.send_activity(
-                MessageFactory.attachment(attachment)
-            )
+        # Extract model name from the environment and raise error if unset or blank.
+        model_name = os.getenv("DATABRICKS_MODEL_NAME", "").strip()
+        if not model_name:
+            raise ValueError("DATABRICKS_MODEL_NAME environment variable is not set or is empty. Check your ./env/.env.local file.")
+        
+        # Send the user's message to the Databricks model for processing.
+        raw_response = w.serving_endpoints.query(
+            name=model_name,
+            messages=[
+                ChatMessage(
+                    role=ChatMessageRole.SYSTEM, content="You are a helpful assistant." # Note: you could provide a better set of instructions.
+                ),
+                ChatMessage(
+                    role=ChatMessageRole.USER, content=user_message
+                ),
+            ],
+            max_tokens=128,
+        )
 
-    async def mention_activity_async(self, turn_context: TurnContext):
-        """
-        Sends a reply that mentions the user.
+        response = raw_response.choices[0].message.content
 
-        Args:
-            turn_context (TurnContext): Provides context for the current turn of conversation.
-        """
-        # Get the user's information (e.g., name, ID) from the incoming activity.
-        user = turn_context.activity.from_property
-
-        # Construct a mention text using the user's name, encoded for HTML.
-        mention_text = f"<at>{escape(user.name)}</at>"
-        # Create a mention entity with the user's details and the mention text.
-        mention_entity = Mention(mentioned=user, text=mention_text, type="mention")
-
-        # Create a text message that includes the mention text.
-        reply_activity = MessageFactory.text(f"Hi {mention_text}")
-        # Attach the mention entity to the message.
-        reply_activity.entities = [mention_entity]
-
-        # Send the message with the mention to the user.
-        await turn_context.send_activity(reply_activity)
+        # Send the response from the Databricks model to the user.
+        await turn_context.send_activity(MessageFactory.text(response))
 
