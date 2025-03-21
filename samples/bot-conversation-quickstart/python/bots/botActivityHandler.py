@@ -9,7 +9,7 @@ from html import escape
 from dotenv import load_dotenv
 from databricks.sdk import WorkspaceClient
 
-# Load required Databricks auth variables from the .env file into the environment.
+# Load required Databricks variables from the .env file into the environment.
 load_dotenv()
 
 # WorkspaceClient is used to interact with the Databricks workspace.
