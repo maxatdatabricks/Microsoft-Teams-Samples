@@ -6,6 +6,16 @@ from botbuilder.schema import HeroCard, CardAction, ActionTypes, Mention, Attach
 from botbuilder.core.teams import TeamsActivityHandler
 from html import escape
 
+from dotenv import load_dotenv
+from databricks.sdk import WorkspaceClient
+
+# Load required Databricks auth variables from the .env file into the environment.
+load_dotenv()
+
+# WorkspaceClient is used to interact with the Databricks workspace.
+# Default authentication flow uses the DATABRICKS_HOST, DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET environment variables.
+w = WorkspaceClient()
+
 class BotActivityHandler(TeamsActivityHandler):
     def __init__(self):
         super().__init__()
