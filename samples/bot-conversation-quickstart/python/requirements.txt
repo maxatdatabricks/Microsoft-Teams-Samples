@@ -1,2 +1,6 @@
 requests==2.32.3
 botbuilder-integration-aiohttp>=4.16.2
+numpy
+python-dotenv
+databricks-sdk
+pandas
